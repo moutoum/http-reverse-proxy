@@ -6,13 +6,19 @@ import (
 	"os"
 	"os/signal"
 
+	"github.com/moutoum/http-reverse-proxy/pkg/proxy"
 	"github.com/moutoum/http-reverse-proxy/pkg/server"
 	"github.com/sirupsen/logrus"
 )
 
 func main() {
+	p := proxy.New(
+		proxy.WithProxy("/api/v1", "localhost:5051"),
+		proxy.WithProxy("/api/v2", "localhost:5052"),
+	)
+
 	// Create a HTTP server that listens on port 5050.
-	s := server.New(server.WithAddr(":5050"))
+	s := server.New(p, server.WithAddr(":5050"))
 
 	go func() {
 		logrus.Info("Start listening on port 5050")

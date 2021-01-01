@@ -11,10 +11,10 @@ type Server struct {
 	s *http.Server
 }
 
-func New(opts ...Option) *Server {
+func New(handler *proxy.Handler, opts ...Option) *Server {
 	s := &Server{
 		s: &http.Server{
-			Handler: &proxy.Proxy{},
+			Handler: handler,
 		},
 	}
 
