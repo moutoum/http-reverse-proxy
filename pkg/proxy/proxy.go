@@ -3,21 +3,23 @@ package proxy
 import (
 	"io"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 )
 
 type Handler struct {
-	proxies   map[string]string
+	target    *url.URL
 	transport http.RoundTripper
 }
 
 var _ http.Handler = (*Handler)(nil)
 
-func New(opts ...Option) *Handler {
+func New(target *url.URL, opts ...Option) *Handler {
 	h := &Handler{
-		proxies: make(map[string]string),
 		transport: http.DefaultTransport,
+		target:    target,
 	}
 
 	for _, o := range opts {
@@ -29,15 +31,7 @@ func New(opts ...Option) *Handler {
 
 func (h *Handler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	outgoingRequest := request.Clone(request.Context())
-
-	host, ok := h.proxies[request.RequestURI]
-	if !ok {
-		writer.WriteHeader(http.StatusBadGateway)
-		return
-	}
-
-	outgoingRequest.URL.Scheme = "http"
-	outgoingRequest.URL.Host = host
+	outgoingRequest.URL = mergeURLs(request.URL, h.target)
 
 	response, err := h.transport.RoundTrip(outgoingRequest)
 	if err != nil {
@@ -58,9 +52,10 @@ func copyResponse(response *http.Response, writer http.ResponseWriter) error {
 	writer.WriteHeader(response.StatusCode)
 
 	// Forward http headers.
+	headers := writer.Header()
 	for key, values := range response.Header {
 		for _, value := range values {
-			writer.Header().Add(key, value)
+			headers.Add(key, value)
 		}
 	}
 
@@ -70,4 +65,21 @@ func copyResponse(response *http.Response, writer http.ResponseWriter) error {
 	}
 
 	return nil
+}
+
+func mergeURLs(req, target *url.URL) *url.URL {
+	u := *target
+
+	if !strings.HasSuffix(u.Path, "/") {
+		u.Path += "/"
+	}
+	u.Path += strings.TrimPrefix(req.Path, "/")
+
+	if len(u.RawQuery) == 0 || len(req.RawQuery) == 0 {
+		u.RawQuery = u.RawQuery + req.RawQuery
+	} else {
+		u.RawQuery = u.RawQuery + "&" + req.RawQuery
+	}
+
+	return &u
 }

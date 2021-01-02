@@ -3,26 +3,29 @@ package main
 import (
 	"context"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 
 	"github.com/moutoum/http-reverse-proxy/pkg/proxy"
-	"github.com/moutoum/http-reverse-proxy/pkg/server"
 	"github.com/sirupsen/logrus"
 )
 
 func main() {
-	p := proxy.New(
-		proxy.WithProxy("/api/v1", "localhost:5051"),
-		proxy.WithProxy("/api/v2", "localhost:5052"),
-	)
+	p := proxy.New(&url.URL{
+		Scheme: "http",
+		Host:   ":5051",
+		Path:   "/api",
+	})
 
-	// Create a HTTP server that listens on port 5050.
-	s := server.New(p, server.WithAddr(":5050"))
+	s := http.Server{
+		Addr: ":5050",
+		Handler: p,
+	}
 
 	go func() {
 		logrus.Info("Start listening on port 5050")
-		if err := s.Serve(); err != nil && err != http.ErrServerClosed {
+		if err := s.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logrus.WithError(err).Error("Error while serving HTTP server")
 			return
 		}
@@ -41,6 +44,7 @@ func main() {
 
 	// Try to gracefully shut down the pending requests.
 	go func() {
+		logrus.Info("Waiting for connection to exit")
 		if err := s.Shutdown(ctx); err != nil {
 			logrus.WithError(err).Error("Error while shutting down server")
 			return
