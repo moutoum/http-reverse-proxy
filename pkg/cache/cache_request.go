@@ -28,7 +28,7 @@ func (r *Request) IsCacheable() bool {
 
 	// TODO: Add strong and smooth validations (ETag, If-Match...).
 
-	if r.CacheControl.HasMaxAge && (r.CacheControl.MaxAge == 0 || r.CacheControl.Expiration.Before(time.Now())) {
+	if r.CacheControl.HasMaxAge && (r.CacheControl.MaxAge == 0) {
 		return false
 	}
 

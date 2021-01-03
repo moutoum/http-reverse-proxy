@@ -7,17 +7,16 @@ import (
 )
 
 type CacheControl struct {
-	NoStore, HasNotStore      bool
-	NoCache, HasNoCache       bool
-	Public, HasPublic         bool
+	NoStore                   bool
+	NoCache                   bool
+	Public                    bool
 	OnlyCached, HasOnlyCached bool
 	MaxAge                    time.Duration
 	HasMaxAge                 bool
-	Expiration                time.Time
 }
 
 func ParseCacheControl(cacheControlHeader string) *CacheControl {
-	cc := &CacheControl{}
+	cc := &CacheControl{Public: true}
 
 	items := strings.Split(cacheControlHeader, ",")
 	for _, item := range items {
@@ -25,15 +24,15 @@ func ParseCacheControl(cacheControlHeader string) *CacheControl {
 		switch item {
 		case "no-store":
 			cc.NoStore = true
-			cc.HasNotStore = true
 			continue
 		case "no-cache":
 			cc.NoCache = true
-			cc.HasNoCache = true
 			continue
 		case "public":
 			cc.Public = true
-			cc.HasPublic = true
+			continue
+		case "private":
+			cc.Public = false
 			continue
 		case "only-if-cached":
 			cc.OnlyCached = true
@@ -45,7 +44,6 @@ func ParseCacheControl(cacheControlHeader string) *CacheControl {
 			age, err := strconv.Atoi(ageStr)
 			if err == nil {
 				cc.MaxAge = time.Duration(age) * time.Second
-				cc.Expiration = time.Now().Add(cc.MaxAge)
 				cc.HasMaxAge = true
 			}
 			continue
