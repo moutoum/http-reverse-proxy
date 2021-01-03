@@ -7,20 +7,25 @@ import (
 	"os"
 	"os/signal"
 
+	"github.com/moutoum/http-reverse-proxy/pkg/cache"
 	"github.com/moutoum/http-reverse-proxy/pkg/proxy"
 	"github.com/sirupsen/logrus"
 )
 
 func main() {
+	logrus.SetLevel(logrus.DebugLevel)
+
 	p := proxy.New(&url.URL{
 		Scheme: "http",
 		Host:   ":5051",
 		Path:   "/api",
 	})
 
+	ca := cache.NewHandler(cache.NewInMemoryCache(), p)
+
 	s := http.Server{
-		Addr: ":5050",
-		Handler: p,
+		Addr:    ":5050",
+		Handler: ca,
 	}
 
 	go func() {

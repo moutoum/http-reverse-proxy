@@ -1,8 +1,6 @@
 package proxy
 
-import (
-	"net/http"
-)
+import "net/http"
 
 type Option func(*Handler)
 
