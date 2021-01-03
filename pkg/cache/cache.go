@@ -14,17 +14,17 @@ type Resource struct {
 }
 
 type InMemoryCache struct {
-	zone map[string]*Resource
+	store map[string]*Resource
 }
 
 func NewInMemoryCache() *InMemoryCache {
 	return &InMemoryCache{
-		zone: make(map[string]*Resource, 1024),
+		store: make(map[string]*Resource, 1024),
 	}
 }
 
 func (i *InMemoryCache) Get(key string) *Resource {
-	resource, ok := i.zone[key]
+	resource, ok := i.store[key]
 	if !ok {
 		return nil
 	}
@@ -33,5 +33,5 @@ func (i *InMemoryCache) Get(key string) *Resource {
 }
 
 func (i *InMemoryCache) Store(key string, resource *Resource) {
-	i.zone[key] = resource
+	i.store[key] = resource
 }

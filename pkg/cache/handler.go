@@ -6,15 +6,13 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var (
-	cacheableStatus = map[int]bool{
-		http.StatusOK:               true,
-		http.StatusFound:            true,
-		http.StatusNotFound:         true,
-		http.StatusNotModified:      true,
-		http.StatusMovedPermanently: true,
-	}
-)
+var cacheableStatus = map[int]bool{
+	http.StatusOK:               true,
+	http.StatusFound:            true,
+	http.StatusNotFound:         true,
+	http.StatusNotModified:      true,
+	http.StatusMovedPermanently: true,
+}
 
 type Handler struct {
 	Cache           Cache
@@ -58,9 +56,15 @@ func (h *Handler) ServeHTTP(writer http.ResponseWriter, r *http.Request) {
 		writer.WriteHeader(http.StatusGatewayTimeout)
 		return
 	}
+
 	rw := NewResourceWriter(writer)
 	h.forwardToOrigin(rw, request)
 	resource = rw.Resource()
+
+	if cacheable := h.isResourceCacheable(resource); !cacheable {
+		return
+	}
+
 	logrus.Debug("Storing resource in cache")
 	h.Cache.Store(request.key, resource)
 }
@@ -82,4 +86,26 @@ func (h *Handler) forwardResourceToClient(r *Resource, writer http.ResponseWrite
 
 	writer.WriteHeader(r.Status)
 	_, _ = writer.Write(r.Body)
+}
+
+func (h *Handler) isResourceCacheable(resource *Resource) bool {
+	cc := ParseCacheControl(resource.Headers.Get("Cache-Control"))
+
+	if cacheable, ok := h.cacheableStatus[resource.Status]; !ok || !cacheable {
+		return false
+	}
+
+	if cc.NoStore || cc.NoCache {
+		return false
+	}
+
+	if !cc.Public {
+		return false
+	}
+
+	if cc.HasMaxAge && cc.MaxAge == 0 {
+		return false
+	}
+
+	return true
 }
