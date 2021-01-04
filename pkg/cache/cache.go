@@ -2,6 +2,7 @@ package cache
 
 import (
 	"net/http"
+	"sync"
 	"time"
 )
 
@@ -50,28 +51,27 @@ type InMemoryCache struct {
 
 	// store is a map that represents the resources indexed by
 	// a key.
-	store map[string]*Resource
+	store *sync.Map
 }
 
-// NewInMemoryCache creates an in memory cache with 1024
-// slots allocated.
+// NewInMemoryCache creates an in memory cache.
 func NewInMemoryCache() *InMemoryCache {
 	return &InMemoryCache{
-		store: make(map[string]*Resource, 1024),
+		store: &sync.Map{},
 	}
 }
 
 // Get is the `Cache` interface implementation.
 func (i *InMemoryCache) Get(key string) *Resource {
-	resource, ok := i.store[key]
+	resource, ok := i.store.Load(key)
 	if !ok {
 		return nil
 	}
 
-	return resource
+	return resource.(*Resource)
 }
 
 // Store is the `Cache` interface implementation.
 func (i *InMemoryCache) Store(key string, resource *Resource) {
-	i.store[key] = resource
+	i.store.Store(key, resource)
 }
