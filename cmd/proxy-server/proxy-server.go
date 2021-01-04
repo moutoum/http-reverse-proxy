@@ -10,26 +10,87 @@ import (
 	"github.com/moutoum/http-reverse-proxy/pkg/cache"
 	"github.com/moutoum/http-reverse-proxy/pkg/proxy"
 	"github.com/sirupsen/logrus"
+	"github.com/urfave/cli/v2"
 )
 
+// URLGenericValue helps to parse the CLI
+// argument into an url.URL.
+//
+// It implements the cli.Generic interface.
+type URLGenericValue struct {
+	url *url.URL
+}
+
+// Set is the "cli.Generic" interface implementation.
+func (u *URLGenericValue) Set(value string) error {
+	v, err := url.Parse(value)
+	if err != nil {
+		return err
+	}
+
+	u.url = v
+	return nil
+}
+
+// String is the "cli.Generic" interface implementation.
+func (u *URLGenericValue) String() string {
+	if u.url == nil {
+		return ""
+	}
+	return u.url.String()
+}
+
 func main() {
-	logrus.SetLevel(logrus.DebugLevel)
+	app := &cli.App{
+		Name:        "proxy-server",
+		Usage:       "HTTP proxy server",
+		HideVersion: true,
+		Authors: []*cli.Author{{
+			Name:  "Maxence Moutoussamy",
+			Email: "maxence.moutoussamy1@gmail.com",
+		}},
+		Action: app,
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:    "bind-addr",
+				Aliases: []string{"b"},
+				Usage:   "Binding address for the proxy server",
+				Value:   ":80",
+			},
+			&cli.GenericFlag{
+				Name:     "target-server",
+				Aliases:  []string{"t"},
+				Usage:    "Target server URL to use to forward requests",
+				Required: true,
+				Value:    &URLGenericValue{},
+			},
+			&cli.BoolFlag{
+				Name:    "debug",
+				Aliases: []string{"d"},
+				Usage:   "Enable debug mode",
+				Value:   false,
+			},
+		},
+	}
 
-	p := proxy.New(&url.URL{
-		Scheme: "http",
-		Host:   ":5051",
-		Path:   "/api",
-	})
+	_ = app.Run(os.Args)
+}
 
+func app(args *cli.Context) error {
+	if args.Bool("debug") {
+		logrus.SetLevel(logrus.DebugLevel)
+	}
+
+	urlValue := args.Generic("target-server").(*URLGenericValue)
+	p := proxy.New(urlValue.url)
 	ca := cache.NewHandler(cache.NewInMemoryCache(), p)
-
 	s := http.Server{
-		Addr:    ":5050",
+		Addr:    args.String("bind-addr"),
 		Handler: ca,
 	}
 
 	go func() {
-		logrus.Info("Start listening on port 5050")
+		logrus.Infof("Start listening at %s", args.String("bind-addr"))
 		if err := s.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logrus.WithError(err).Error("Error while serving HTTP server")
 			return
@@ -71,4 +132,6 @@ func main() {
 		_ = s.Close()
 		logrus.Info("Force shutdown.")
 	}
+
+	return nil
 }
