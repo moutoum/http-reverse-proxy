@@ -102,3 +102,13 @@ func Test_copyResponse(t *testing.T) {
 		return
 	}
 }
+
+func startTestServer() *httptest.Server {
+	testMux := http.NewServeMux()
+
+	testMux.HandleFunc("/api/data", func(writer http.ResponseWriter, request *http.Request) {
+		writer.WriteHeader(http.StatusOK)
+	})
+
+	return httptest.NewServer(testMux)
+}
