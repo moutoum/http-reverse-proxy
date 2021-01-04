@@ -8,9 +8,8 @@ import (
 
 func TestInMemoryCache_Get(t *testing.T) {
 	resource := &Resource{Status: 666}
-	cache := &InMemoryCache{store: map[string]*Resource{
-		"test-id": resource,
-	}}
+	cache := NewInMemoryCache()
+	cache.store.Store("test-id", resource)
 
 	t.Run("Fetch not present resource in store", func(t *testing.T) {
 		assert.Nil(t, cache.Get("invalid-key"))
@@ -27,7 +26,7 @@ func TestInMemoryCache_Store(t *testing.T) {
 	resource := &Resource{Status: 666}
 	cache := NewInMemoryCache()
 	cache.Store("test-key", resource)
-	r, ok := cache.store["test-key"]
+	r, ok := cache.store.Load("test-key")
 	assert.True(t, ok)
 	assert.Equal(t, resource, r)
 }
