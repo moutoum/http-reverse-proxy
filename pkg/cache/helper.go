@@ -1,29 +1,33 @@
 package cache
 
-import "net/http"
+import (
+	"net/http"
+	"time"
+)
 
+// ResourceWriter is a Resource generator that implements
+// http.ResponseWriter. It is used as a buffer to store
+// the origin server response and generate a resource from it.
 type ResourceWriter struct {
-	writer http.ResponseWriter
-	status int
-	body   []byte
+	status  int
+	headers http.Header
+	body    []byte
 }
 
-func NewResourceWriter(upstream http.ResponseWriter) *ResourceWriter {
+// NewResourceWriter creates an empty ResourceWriter.
+func NewResourceWriter() *ResourceWriter {
 	return &ResourceWriter{
-		writer: upstream,
+		headers: make(http.Header),
 	}
 }
 
+// Header is the "http.ResponseWriter" interface implementation.
 func (r *ResourceWriter) Header() http.Header {
-	return r.writer.Header()
+	return r.headers
 }
 
+// Write is the "http.ResponseWriter" interface implementation.
 func (r *ResourceWriter) Write(bytes []byte) (int, error) {
-	_, err := r.writer.Write(bytes)
-	if err != nil {
-		return 0, err
-	}
-
 	r.body = bytes
 
 	if r.status == 0 {
@@ -33,15 +37,20 @@ func (r *ResourceWriter) Write(bytes []byte) (int, error) {
 	return len(bytes), nil
 }
 
+// WriteHeader is the "http.ResponseWriter" interface implementation.
 func (r *ResourceWriter) WriteHeader(statusCode int) {
-	r.writer.WriteHeader(statusCode)
 	r.status = statusCode
 }
 
+// Resource generates a Resource from its internal state.
+// NOTE: This function has to be used only when the origin
+//       server finished to write the response into.
 func (r *ResourceWriter) Resource() *Resource {
 	return &Resource{
 		Status:  r.status,
-		Headers: r.writer.Header(),
+		Headers: r.headers,
 		Body:    r.body,
+		Date:    time.Now(),
+		cc:      ParseCacheControl(r.headers.Get("Cache-Control")),
 	}
 }
