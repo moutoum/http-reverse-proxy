@@ -85,8 +85,8 @@ func ParseCacheControl(cacheControlHeader string) *CacheControl {
 				if maxStale, err := strconv.Atoi(item[pos+1:]); err == nil {
 					cc.MaxStale = time.Duration(maxStale) * time.Second
 					cc.HasMaxStale = true
-					continue
 				}
+				continue
 			}
 			// If no specified value, we consider a valid resource for 15 years
 			// after the expiration Date.
