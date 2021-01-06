@@ -76,6 +76,21 @@ func main() {
 				Usage:   "Enable the cache feature",
 				Value:   false,
 			},
+			&cli.PathFlag{
+				Name:  "tls-certificate",
+				Aliases: []string{"crt"},
+				Usage: "TLS certificate",
+			},
+			&cli.PathFlag{
+				Name:  "tls-key",
+				Aliases: []string{"key"},
+				Usage: "TLS key",
+			},
+			&cli.BoolFlag{
+				Name: "insecure",
+				Aliases: []string{"k"},
+				Usage: "Use to skip TLS authority verification",
+			},
 		},
 	}
 
@@ -88,22 +103,38 @@ func app(args *cli.Context) error {
 	}
 
 	urlValue := args.Generic("target-server").(*URLGenericValue)
-	var h http.Handler = proxy.New(urlValue.url)
+
+	var opts []proxy.Option
+	if args.Bool("insecure") {
+		opts = append(opts, proxy.WithInsecure())
+	}
+
+	var h http.Handler = proxy.New(urlValue.url, opts...)
+
 	if args.Bool("enable-cache") {
 		h = cache.NewHandler(cache.NewInMemoryCache(), h)
 	}
+
 	s := http.Server{
 		Addr:    args.String("bind-addr"),
 		Handler: h,
 	}
 
 	go func() {
+		cert, key := args.Path("tls-certificate"), args.Path("tls-key")
+		if len(cert) > 0 && len(key) > 0 {
+			logrus.Infof("Start secured listening at %s", args.String("bind-addr"))
+			if err := s.ListenAndServeTLS(cert, key); err != nil && err != http.ErrServerClosed {
+				logrus.WithError(err).Error("Error while serving HTTP server")
+			}
+			return
+		}
+
 		logrus.Infof("Start listening at %s", args.String("bind-addr"))
 		if err := s.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logrus.WithError(err).Error("Error while serving HTTP server")
 			return
 		}
-
 	}()
 
 	c := make(chan os.Signal)
