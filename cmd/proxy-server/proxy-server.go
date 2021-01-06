@@ -86,6 +86,11 @@ func main() {
 				Aliases: []string{"key"},
 				Usage: "TLS key",
 			},
+			&cli.BoolFlag{
+				Name: "insecure",
+				Aliases: []string{"k"},
+				Usage: "Use to skip TLS authority verification",
+			},
 		},
 	}
 
@@ -98,7 +103,14 @@ func app(args *cli.Context) error {
 	}
 
 	urlValue := args.Generic("target-server").(*URLGenericValue)
-	var h http.Handler = proxy.New(urlValue.url)
+
+	var opts []proxy.Option
+	if args.Bool("insecure") {
+		opts = append(opts, proxy.WithInsecure())
+	}
+
+	var h http.Handler = proxy.New(urlValue.url, opts...)
+
 	if args.Bool("enable-cache") {
 		h = cache.NewHandler(cache.NewInMemoryCache(), h)
 	}

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"sync"
 
 	"github.com/sirupsen/logrus"
 )
@@ -33,8 +34,23 @@ func main() {
 		_, _ = fmt.Fprintf(writer, "This a resource with max-age=%s\n", age)
 	})
 
-	fmt.Println("Starting listening on port 8080")
-	if err := http.ListenAndServe(":8080", &LogMiddleware{handler: mux}); err != nil {
-		fmt.Printf("An error occurred while serving http server: %v\n", err)
-	}
+	wg := &sync.WaitGroup{}
+	wg.Add(2)
+	go func() {
+		fmt.Println("Starting listening on port 8080")
+		if err := http.ListenAndServe(":8080", &LogMiddleware{handler: mux}); err != nil {
+			fmt.Printf("An error occurred while serving http server: %v\n", err)
+		}
+		wg.Done()
+	}()
+
+	go func() {
+		fmt.Println("Starting secured listening on port 8443")
+		if err := http.ListenAndServeTLS(":8443", "./certs/server.crt", "./certs/server.key", &LogMiddleware{handler: mux}); err != nil {
+			fmt.Printf("An error occurred while serving http server: %v\n", err)
+		}
+		wg.Done()
+	}()
+
+	wg.Wait()
 }
