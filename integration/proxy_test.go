@@ -11,7 +11,7 @@ import (
 
 func TestProxy(t *testing.T) {
 	t.Run("Working scenarios", func(t *testing.T) {
-		originServer := NewOriginServer().
+		originServer := NewTargetServer().
 			WithRouteStatus("/api/check", http.StatusOK).
 			WithRouteContent("/api/data", http.StatusOK, []byte("My super content")).
 			WithRouteStatus("/api/not-found", http.StatusNotFound).

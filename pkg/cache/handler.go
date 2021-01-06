@@ -24,11 +24,11 @@ type Handler struct {
 
 	// Cache is the cache storage behavior to use to store
 	// the http responses.
-	Cache           Cache
+	Cache Cache
 
 	// Origin is the http handler that will have the caching feature
 	// in front of it.
-	Origin          http.Handler
+	Origin http.Handler
 
 	// cacheableStatus is at first a copy of the global variable. It will
 	// help to have customized response status for the current cache
@@ -76,26 +76,29 @@ func (h *Handler) ServeHTTP(writer http.ResponseWriter, r *http.Request) {
 	// Try loading a cached resource.
 	resource := h.load(request)
 	if resource != nil {
-		// If the resource is found, it checks if it's stale
-		// or valid, and ask the origin server again if needed.
-		acceptedMaxAge := resource.cc.MaxAge
 
-		// Max stale is a client option that allows the resource to
-		// be stale but since some specified time.
-		if request.cacheControl.HasMaxStale {
-			acceptedMaxAge += request.cacheControl.MaxStale
-		}
+		if resource.cc.HasMaxAge {
+			// If the resource is found, it checks if it's stale
+			// or valid, and ask the origin server again if needed.
+			acceptedMaxAge := resource.cc.MaxAge
 
-		// Min fresh is a client option that force the resource to
-		// be fresh for at least some time after the request.
-		if request.cacheControl.HasMinFresh {
-			acceptedMaxAge -= request.cacheControl.MinFresh
-		}
+			// Max stale is a client option that allows the resource to
+			// be stale but since some specified time.
+			if request.cacheControl.HasMaxStale {
+				acceptedMaxAge += request.cacheControl.MaxStale
+			}
 
-		if resource.Age() >= acceptedMaxAge {
-			// TODO: Validation instead of new request.
-			h.forwardToOrigin(writer, request)
-			return
+			// Min fresh is a client option that force the resource to
+			// be fresh for at least some time after the request.
+			if request.cacheControl.HasMinFresh {
+				acceptedMaxAge -= request.cacheControl.MinFresh
+			}
+
+			if resource.Age() >= acceptedMaxAge {
+				// TODO: Validation instead of new request.
+				h.forwardToOrigin(writer, request)
+				return
+			}
 		}
 
 		logrus.Debug("Forwarding resource to client")
@@ -103,7 +106,7 @@ func (h *Handler) ServeHTTP(writer http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logrus.WithField("resource", request.request.RequestURI).Debug("No resources matched in cache")
+	logrus.WithField("resource", request.request.URL.RequestURI()).Debug("No resources matched in cache")
 
 	// Only cached is a client option that force the request to use the
 	// cached response. So, if the resource is not available, we send back
@@ -124,11 +127,11 @@ func (h *Handler) forwardToOrigin(writer http.ResponseWriter, request *Request) 
 	resource := rw.Resource()
 	forwardResource(resource, writer)
 
-	if cacheable := h.isResourceCacheable(resource); !cacheable {
+	if !h.isResourceCacheable(resource) {
 		return
 	}
 
-	logrus.WithField("resource", request.request.RequestURI).Debug("Storing resource in cache")
+	logrus.WithField("resource", request.request.URL.RequestURI()).Debug("Storing resource in cache")
 	h.Cache.Store(request.key, resource)
 }
 
