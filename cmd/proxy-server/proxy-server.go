@@ -70,6 +70,12 @@ func main() {
 				Usage:   "Enable debug mode",
 				Value:   false,
 			},
+			&cli.BoolFlag{
+				Name:    "enable-cache",
+				Aliases: []string{"c"},
+				Usage:   "Enable the cache feature",
+				Value:   false,
+			},
 		},
 	}
 
@@ -82,11 +88,13 @@ func app(args *cli.Context) error {
 	}
 
 	urlValue := args.Generic("target-server").(*URLGenericValue)
-	p := proxy.New(urlValue.url)
-	ca := cache.NewHandler(cache.NewInMemoryCache(), p)
+	var h http.Handler = proxy.New(urlValue.url)
+	if args.Bool("enable-cache") {
+		h = cache.NewHandler(cache.NewInMemoryCache(), h)
+	}
 	s := http.Server{
 		Addr:    args.String("bind-addr"),
-		Handler: ca,
+		Handler: h,
 	}
 
 	go func() {

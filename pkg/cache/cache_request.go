@@ -45,11 +45,15 @@ func (r *Request) IsCacheable() bool {
 		return false
 	}
 
+	if r.cacheControl.NoCache || r.cacheControl.NoStore {
+		return false
+	}
+
 	return true
 }
 
 // generateRequestKey generates an unique identifier
 // from a http.Request.
 func generateRequestKey(r *http.Request) string {
-	return r.URL.RequestURI()
+	return r.URL.RequestURI() + r.URL.RawQuery
 }

@@ -76,7 +76,6 @@ func (h *Handler) ServeHTTP(writer http.ResponseWriter, r *http.Request) {
 	// Try loading a cached resource.
 	resource := h.load(request)
 	if resource != nil {
-
 		if resource.cc.HasMaxAge {
 			// If the resource is found, it checks if it's stale
 			// or valid, and ask the origin server again if needed.
@@ -94,16 +93,19 @@ func (h *Handler) ServeHTTP(writer http.ResponseWriter, r *http.Request) {
 				acceptedMaxAge -= request.cacheControl.MinFresh
 			}
 
-			if resource.Age() >= acceptedMaxAge {
-				// TODO: Validation instead of new request.
-				h.forwardToOrigin(writer, request)
+			if resource.Age() < acceptedMaxAge {
+				logrus.Debug("Forwarding resource to client")
+				forwardResource(resource, writer)
 				return
 			}
-		}
 
-		logrus.Debug("Forwarding resource to client")
-		forwardResource(resource, writer)
-		return
+			// TODO: Smooth validation and update resource freshness (304, ETag...).
+
+		} else {
+			logrus.Debug("Forwarding resource to client")
+			forwardResource(resource, writer)
+			return
+		}
 	}
 
 	logrus.WithField("resource", request.request.URL.RequestURI()).Debug("No resources matched in cache")

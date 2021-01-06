@@ -45,6 +45,7 @@ func New(target *url.URL, opts ...Option) *Handler {
 func (h *Handler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	outgoingRequest := request.Clone(request.Context())
 	outgoingRequest.URL = mergeURLs(request.URL, h.target)
+	outgoingRequest.Header.Set("X-Proxy-Remote-Addr", request.RemoteAddr)
 
 	// Sends the request to the target server.
 	// Note: Cannot use a simple `http.Client` because the implementation
@@ -84,13 +85,15 @@ func copyResponse(response *http.Response, writer http.ResponseWriter) error {
 		}
 	}
 
+	// Forward response status code.
+	if response.StatusCode != http.StatusOK {
+		writer.WriteHeader(response.StatusCode)
+	}
+
 	// Forward response body.
 	if _, err := io.Copy(writer, response.Body); err != nil {
 		return err
 	}
-
-	// Forward response status code.
-	writer.WriteHeader(response.StatusCode)
 
 	return nil
 }
